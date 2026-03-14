@@ -68,14 +68,13 @@ def nbody_parallel_step(pos, vel, mass, n_workers=4, G=1.0, dt=0.01, softening=0
     with Pool(n_workers) as pool:
         results = pool.map(compute_forces_chunk, chunks)
 
-    # Reassemble forces from all workers
-    force = np.zeros((N, 3))
-    for i_start, force_chunk in results:
-        force[i_start:i_start + len(force_chunk)] = force_chunk
+    # Reassemble accelerations from all workers
+    acc = np.zeros((N, 3))
+    for i_start, acc_chunk in results:
+        acc[i_start:i_start + len(acc_chunk)] = acc_chunk
 
-    acc = force / mass[:, np.newaxis]
-    vel += acc * dt
-    pos += vel * dt
+    vel = vel + acc * dt
+    pos = pos + vel * dt
     return pos, vel
 
 def run_simulation(N=500, steps=1000, n_workers=4):

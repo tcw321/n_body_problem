@@ -5,7 +5,7 @@ Run with:  pytest test_phase1.py -v
 """
 import numpy as np
 import pytest
-from main import compute_forces_chunk, compute_forces_chunk_loop
+from main import compute_forces_chunk, compute_forces_chunk_loop, nbody_parallel_step
 
 
 # ---------------------------------------------------------------------------
@@ -115,6 +115,44 @@ def test_symmetric_ring_zero_net_force():
 # ---------------------------------------------------------------------------
 # Test 5: softening prevents division by zero when two bodies coincide
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Test 6: physics bug — nbody_parallel_step incorrectly divides acceleration
+#         by mass a second time.
+#
+# compute_forces_chunk already returns acceleration:
+#   a_i = G * sum_j  m_j / r_ij^3 * (r_j - r_i)
+#
+# nbody_parallel_step then does:  acc = force / mass
+# which gives a_i / m_i — wrong. The velocity update is off by factor 1/m_i.
+#
+# We expose this with a 2-body analytic check:
+#   Body 0 (mass=3) at origin, body 1 (mass=1) at (2, 0, 0).
+#   Expected acceleration on body 0: G * m1 / d^2 = 1*1/4 = 0.25
+#   Expected delta-v after one step:  0.25 * dt = 0.0025
+#   Buggy delta-v:                    0.25 / m0 * dt = 0.0025 / 3 ≈ 0.000833
+# ---------------------------------------------------------------------------
+
+def test_step_velocity_update_not_divided_by_mass():
+    G, dt, softening = 1.0, 0.01, 0.0
+    d = 2.0
+    pos  = np.array([[0.0, 0.0, 0.0],
+                     [d,   0.0, 0.0]])
+    vel  = np.zeros((2, 3))
+    mass = np.array([3.0, 1.0])   # unequal masses expose the bug
+
+    expected_acc_body0 = G * mass[1] / d ** 2   # 0.25
+    expected_delta_v   = expected_acc_body0 * dt  # 0.0025
+
+    _, vel_new = nbody_parallel_step(
+        pos.copy(), vel.copy(), mass, n_workers=1, G=G, dt=dt, softening=softening
+    )
+
+    assert vel_new[0, 0] == pytest.approx(expected_delta_v, rel=1e-9), (
+        f"delta-v = {vel_new[0,0]:.6f}, expected {expected_delta_v:.6f}. "
+        f"Likely cause: acceleration divided by mass a second time."
+    )
+
 
 def test_softening_prevents_division_by_zero():
     pos  = np.array([[1.0, 0.0, 0.0],
