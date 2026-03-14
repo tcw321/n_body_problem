@@ -53,6 +53,17 @@ def compute_forces_chunk(args):
 
     return i_start, force_chunk
 
+def nbody_step(pos, vel, mass, G=1.0, dt=0.01, softening=0.1):
+    """
+    Single-process vectorized step. Suitable for small N (e.g. visualization).
+    Calls compute_forces_chunk for the full body array on one process.
+    """
+    _, acc = compute_forces_chunk((0, len(mass), pos, mass, G, softening))
+    vel = vel + acc * dt
+    pos = pos + vel * dt
+    return pos, vel
+
+
 def nbody_parallel_step(pos, vel, mass, n_workers=4, G=1.0, dt=0.01, softening=0.1):
     N = len(mass)
     chunk_size = N // n_workers
