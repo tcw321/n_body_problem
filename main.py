@@ -64,6 +64,34 @@ def nbody_step(pos, vel, mass, G=1.0, dt=0.01, softening=0.1):
     return pos, vel
 
 
+def nbody_parallel_step_persistent(pos, vel, mass, pool, n_workers, G=1.0, dt=0.01, softening=0.1):
+    """
+    Multi-process step using a caller-supplied, already-running pool.
+
+    The pool is created once outside the step loop and reused every step,
+    eliminating the per-step process spawn overhead of nbody_parallel_step.
+    This is the version used for benchmarking and production runs.
+    """
+    N = len(mass)
+    chunk_size = N // n_workers
+
+    chunks = []
+    for w in range(n_workers):
+        i_start = w * chunk_size
+        i_end = N if w == n_workers - 1 else i_start + chunk_size
+        chunks.append((i_start, i_end, pos, mass, G, softening))
+
+    results = pool.map(compute_forces_chunk, chunks)
+
+    acc = np.zeros((N, 3))
+    for i_start, acc_chunk in results:
+        acc[i_start:i_start + len(acc_chunk)] = acc_chunk
+
+    vel = vel + acc * dt
+    pos = pos + vel * dt
+    return pos, vel
+
+
 def nbody_parallel_step(pos, vel, mass, n_workers=4, G=1.0, dt=0.01, softening=0.1):
     N = len(mass)
     chunk_size = N // n_workers
