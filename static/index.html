@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>N-Body Simulation</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    canvas { border: 1px solid #222; }
+    #status { position: fixed; top: 10px; left: 10px; color: #888; font: 12px monospace; }
+  </style>
+</head>
+<body>
+  <div id="status">connecting...</div>
+  <canvas id="c" width="700" height="700"></canvas>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx    = canvas.getContext('2d');
+    const status = document.getElementById('status');
+
+    // Map simulation coordinates to canvas pixels.
+    // Simulation space is centred on 0 with bodies at radius 2–10.
+    const SIM_RANGE = 14;   // ± units visible
+    const CX = canvas.width  / 2;
+    const CY = canvas.height / 2;
+    const SCALE = canvas.width / (2 * SIM_RANGE);
+
+    function simToCanvas(x, y) {
+      return [CX + x * SCALE, CY - y * SCALE];   // y flipped (canvas y grows downward)
+    }
+
+    function draw(bodies) {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (const b of bodies) {
+        const [px, py] = simToCanvas(b.x, b.y);
+        const r = Math.max(1.5, Math.sqrt(b.mass) * 2);
+
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fillStyle = b.mass > 10 ? '#FFD700' : '#FFFFFF';  // gold for central body
+        ctx.globalAlpha = 0.85;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+      }
+    }
+
+    function connect() {
+      const ws = new WebSocket(`ws://${location.host}/ws`);
+
+      ws.onopen = () => { status.textContent = 'connected'; };
+
+      ws.onmessage = (event) => {
+        const frame = JSON.parse(event.data);
+        draw(frame.bodies);
+        status.textContent = `step ${frame.step}  |  N=${frame.N}  |  t=${frame.t.toFixed(3)}`;
+      };
+
+      ws.onerror = () => { status.textContent = 'connection error — retrying...'; };
+
+      ws.onclose = () => {
+        status.textContent = 'disconnected — reconnecting in 2s...';
+        setTimeout(connect, 2000);
+      };
+    }
+
+    connect();
+  </script>
+</body>
+</html>
