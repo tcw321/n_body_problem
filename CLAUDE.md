@@ -1,5 +1,10 @@
 # N-Body Problem — Development Plan
 
+## Environment
+
+Always use `.venv/Scripts/python.exe` for all Python and pytest commands.
+Full path: `C:/Users/tcw32/PycharmProjects/n_body_problem1/.venv/Scripts/python.exe`
+
 ## Project Goal
 
 Build a scalable n-body gravitational simulation with:

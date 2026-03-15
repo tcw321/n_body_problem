@@ -53,6 +53,63 @@ def compute_forces_chunk(args):
 
     return i_start, force_chunk
 
+def _compute_acc(pos, mass, G=1.0, softening=0.1):
+    """Full-array acceleration computed in a single process."""
+    _, acc = compute_forces_chunk((0, len(mass), pos, mass, G, softening))
+    return acc
+
+
+def euler_step(pos, vel, mass, G=1.0, dt=0.01, softening=0.1):
+    """
+    Forward Euler integrator: pos += vel*dt (old vel), vel += acc*dt.
+    Not symplectic — energy drifts over long runs.
+
+    Note: nbody_step uses updated velocity for the position update (symplectic Euler),
+    which is a different (better-behaved) method. This function is explicit forward
+    Euler, used here to demonstrate why integrator choice matters.
+    """
+    acc = _compute_acc(pos, mass, G, softening)
+    pos = pos + vel * dt        # advance position with OLD velocity
+    vel = vel + acc * dt        # then update velocity
+    return pos, vel
+
+
+def leapfrog_step(pos, vel, mass, G=1.0, dt=0.01, softening=0.1):
+    """
+    Leapfrog (Velocity Verlet / kick-drift-kick) integrator.
+    Symplectic — conserves energy far better than Euler for long runs.
+
+    Algorithm (KDK):
+      1. vel_half = vel + acc * (dt/2)   [half kick]
+      2. pos_new  = pos + vel_half * dt  [full drift]
+      3. acc_new  = forces(pos_new)
+      4. vel_new  = vel_half + acc_new * (dt/2)  [half kick]
+    """
+    acc = _compute_acc(pos, mass, G, softening)
+    vel_half = vel + acc * (dt / 2)
+    pos_new = pos + vel_half * dt
+    acc_new = _compute_acc(pos_new, mass, G, softening)
+    vel_new = vel_half + acc_new * (dt / 2)
+    return pos_new, vel_new
+
+
+def compute_energy(pos, vel, mass, G=1.0, softening=0.1):
+    """
+    Total mechanical energy: kinetic + potential.
+
+    KE = 0.5 * sum_i( m_i * |v_i|^2 )
+    PE = -G * sum_{i<j}( m_i * m_j / sqrt(r_ij^2 + softening^2) )
+    """
+    KE = 0.5 * np.sum(mass * np.sum(vel ** 2, axis=1))
+
+    diff = pos[:, np.newaxis, :] - pos[np.newaxis, :, :]          # (N, N, 3)
+    dist = np.sqrt(np.sum(diff ** 2, axis=2) + softening ** 2)    # (N, N)
+    i_idx, j_idx = np.triu_indices(len(mass), k=1)
+    PE = -G * np.sum(mass[i_idx] * mass[j_idx] / dist[i_idx, j_idx])
+
+    return KE + PE
+
+
 def nbody_step(pos, vel, mass, G=1.0, dt=0.01, softening=0.1):
     """
     Single-process vectorized step. Suitable for small N (e.g. visualization).
