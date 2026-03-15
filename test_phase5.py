@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import ray
 
-from main import nbody_step
+from main import leapfrog_step
 from ray_sim import nbody_ray_step
 
 
@@ -35,28 +35,28 @@ def make_initial_conditions(N=50, seed=7):
 
 
 # ---------------------------------------------------------------------------
-# Test 1: Ray worker output matches multiprocessing output (numerical equivalence)
+# Test 1: Ray output matches leapfrog_step (numerical equivalence)
 # ---------------------------------------------------------------------------
 
-def test_ray_matches_multiprocessing():
+def test_ray_matches_leapfrog():
     N = 50
     pos, vel, mass = make_initial_conditions(N)
     G, dt, softening = 1.0, 0.01, 0.1
     steps = 5
 
-    pos_mp, vel_mp = pos.copy(), vel.copy()
+    pos_lf, vel_lf = pos.copy(), vel.copy()
     for _ in range(steps):
-        pos_mp, vel_mp = nbody_step(pos_mp, vel_mp, mass, G=G, dt=dt, softening=softening)
+        pos_lf, vel_lf = leapfrog_step(pos_lf, vel_lf, mass, G=G, dt=dt, softening=softening)
 
     pos_ray, vel_ray = pos.copy(), vel.copy()
     for _ in range(steps):
         pos_ray, vel_ray = nbody_ray_step(pos_ray, vel_ray, mass, n_workers=1,
                                           G=G, dt=dt, softening=softening)
 
-    np.testing.assert_allclose(pos_ray, pos_mp, rtol=1e-10,
-        err_msg="Ray positions differ from multiprocessing")
-    np.testing.assert_allclose(vel_ray, vel_mp, rtol=1e-10,
-        err_msg="Ray velocities differ from multiprocessing")
+    np.testing.assert_allclose(pos_ray, pos_lf, rtol=1e-10,
+        err_msg="Ray positions differ from leapfrog")
+    np.testing.assert_allclose(vel_ray, vel_lf, rtol=1e-10,
+        err_msg="Ray velocities differ from leapfrog")
 
 
 # ---------------------------------------------------------------------------
