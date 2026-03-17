@@ -2,8 +2,14 @@
 
 ## Environment
 
-Always use `.venv/Scripts/python.exe` for all Python and pytest commands.
-Full path: `C:/Users/tcw32/PycharmProjects/n_body_problem1/.venv/Scripts/python.exe`
+Always use the project virtual environment for all Python and pytest commands.
+
+| Platform | Python | Pytest |
+|---|---|---|
+| Windows | `.venv\Scripts\python.exe` | `.venv\Scripts\pytest` |
+| macOS / Linux | `.venv/bin/python` | `.venv/bin/pytest` |
+
+Never use the system Python.
 
 ## Project Goal
 
