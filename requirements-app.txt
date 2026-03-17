@@ -1,0 +1,8 @@
+# Runtime dependencies for the containerised web server.
+# Excludes Ray (not used by the web server) and test tooling.
+numpy==2.4.3
+matplotlib==3.10.8
+fastapi==0.135.1
+uvicorn[standard]==0.41.0
+websockets==16.0
+anyio==4.12.1

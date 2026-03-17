@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+logs/
+benchmark_results.png
+test_*.py
+pytest.ini
+requirements.txt
+ray_sim.py
+benchmark.py
